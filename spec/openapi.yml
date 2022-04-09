@@ -1,0 +1,862 @@
+---
+openapi: 3.1.0
+id: 'urn:com:lejenome:edf-tech-test:rest-api'
+info:
+  title: Long Running Process Service
+  contact:
+    name: Moez Bouhlel
+    url: 'https://lejenome.tik.tn/'
+    email: moez@tik.tn
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+  version: 0.1.0
+  description: Service to trigger long running processes remotely
+  summary: Service to trigger long running processes remotely
+servers:
+  - url: 'http://localhost:{port}/{basePath}'
+    description: Local dev server
+    variables:
+      port:
+        default: "8080"
+      basePath:
+        default: api/v0.1
+paths:
+  /process:
+    get:
+      operationId: ListProcesses
+      summary: List Processes
+      description: List user triggered processes
+      responses:
+        '200':
+          description: List of user triggered processes
+          content:
+            application/json:
+              schema:
+                type: array
+                uniqueItems: true
+                items:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    statusURL:
+                      type: string
+                      format: uri
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+      tags:
+        - Process
+  /process/trigger:
+    post:
+      operationId: TriggerProcess
+      summary: Trigger Process
+      description: Trigger a process remotely
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerProcessRequest'
+        description: ''
+      responses:
+        '202':
+          description: Process scheduled for execution
+          headers:
+            Content-Location:
+              schema:
+                type: string
+                format: uri
+              description: URL to process status endpoint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriggerProcessResponse'
+          links:
+            status:
+              operationId: GetProcessStatus
+              parameters:
+                processId: $request.body#/id
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/RateLimitError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      tags:
+        - Process
+  '/process/{processId}/status':
+    parameters:
+      - $ref: '#/components/parameters/processId'
+    get:
+      operationId: GetProcessStatus
+      summary: Get Process Status
+      description: Get the current status of the process
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessStatusResponse"
+          links:
+            status:
+              operationId: GetProcessResults
+              parameters:
+                processId: $request.path.processId
+            cancel:
+              operationId: CancelProcess
+              parameters:
+                processId: $request.path.processId
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      tags:
+        - Process
+  '/process/{processId}/results':
+    parameters:
+      - $ref: '#/components/parameters/processId'
+    get:
+      operationId: GetProcessResults
+      summary: Get Process Results
+      description: Get the results/output of the completed process
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessResultsResponse"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      tags:
+        - Process
+  '/process/{processId}/cancel':
+    parameters:
+      - $ref: '#/components/parameters/processId'
+    post:
+      operationId: CancelProcess
+      summary: Cancel Process
+      description: Cancel execultion of a scheduled process (Process should be in SCHEDULED state).
+      responses:
+        '204':
+          description: Process scheduled execution canceled
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+          desciption: Process can not canceled. It either does not implement cancel operation or it is currently running or it was already completed execution.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+      tags:
+        - Process
+  /process/metrics:
+    get: null
+  /process/healthz:
+    get: null
+  /auth/account/me:
+    get:
+      operationId: GetAuthAccount
+      summary: Get Auth Account
+      description: Get the user account of the authenticated user
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthAccount'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+      x-internal: false
+      tags:
+        - Auth
+  /auth/login:
+    post:
+      operationId: Login
+      summary: Login
+      description: Login to the user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthForm'
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - token
+                  - refreshToken
+                  - account
+                properties:
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+                  account:
+                    $ref: '#/components/schemas/AuthAccount'
+        '204':
+          description: '[No Content](https://jsonapi.org/format/#crud-deleting-responses-204)'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+      tags:
+        - Auth
+      security: []
+  /auth/register:
+    post:
+      operationId: Register
+      summary: Register Account
+      description: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthForm'
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - token
+                  - refreshToken
+                  - account
+                properties:
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+                  account:
+                    $ref: '#/components/schemas/AuthAccount'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+      tags:
+        - Auth
+      security: []
+  /auth/jwt/validate:
+    post:
+      operationId: JwtValidate
+      summary: Validate JWT
+      description: Validate JWT Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required:
+                - token
+              additionalProperties: false
+      responses:
+        '204':
+          description: No Content
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+      tags:
+        - Auth
+      security: []
+  /auth/jwt/refresh:
+    post:
+      operationId: JwtRefresh
+      summary: Refresh JWT
+      description: Refresh JWT Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required:
+                - refreshToken
+              additionalProperties: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - token
+                  - refreshToken
+                properties:
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+                additionalProperties: false
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+      tags:
+        - Auth
+      security: []
+components:
+  schemas:
+    ProcessName:
+      type: string
+      pattern: '^[-a-zA-Z0-9_]{2,64}$'
+      minLength: 2
+      maxLength: 64
+      examples:
+        - operation-unique-name-1
+      x-tags:
+        - Process
+    TriggerProcessRequest:
+      type: object
+      description: ''
+      examples:
+        - processName: operation-unique-name-1
+          data:
+            processParam1: true
+            processParam2: "true"
+          config:
+            priority: ''
+            timeout: 10000
+            retry: 1
+            webhookUrl: 'https://clientendpoint.com/notify'
+      additionalProperties: false
+      properties:
+        processName:
+          $ref: "#/components/schemas/ProcessName"
+        data:
+          type: object
+          additionalProperties: true
+        config:
+          type: object
+          additionalProperties: false
+          properties:
+            priority:
+              type: integer
+              minimum: 0
+              maximum: 10
+              x-go-type: uint8
+            timeout:
+              type: integer
+              minimum: 0
+              x-go-type: uint32
+            retry:
+              type: integer
+              minimum: 0
+              maximum: 10
+              x-go-type: uint8
+            webhookUrl:
+              type: string
+              format: uri
+      required:
+        - processID
+        - data
+      x-tags:
+        - Process
+    TriggerProcessResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        statusURL:
+          type: string
+          format: uri
+      x-tags:
+        - Process
+    ProcessState:
+      type: string
+      enum:
+        - SCHEDULED
+        - STARTED
+        - COMPLETED
+      x-tags:
+        - Process
+      readOnly: true
+    ProcessStatus:
+      type: string
+      enum:
+        - PENDING
+        - RUNNING
+        - SUCCESS
+        - FAILURE
+        - CANCEL
+        - TIMEOUT
+      x-tags:
+        - Process
+      readOnly: true
+    ProcessStatusResponse:
+      description: ''
+      type: object
+      examples:
+        - id: '00000000-1111-2222-4444-555555555555'
+          name: 'operation-unique-name-1'
+          state: 'COMPLETED'
+          status: 'SUCCESS'
+          progress: 100
+          createdAt: '2000-10-31T01:30:00.000-05:00'
+          updatedAt: '2000-10-31T01:30:00.000-05:00'
+          startedAt: '2000-10-31T01:30:00.000-05:00'
+          endedAt: '2000-10-31T01:30:00.000-05:00'
+          owner: 'username'
+          resultsUrl: 'https://example.com/api/process/00000000-1111-2222-4444-555555555555/results'
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          $ref: "#/components/schemas/ProcessName"
+        state:
+          $ref: "#/components/schemas/ProcessState"
+        status:
+          $ref: "#/components/schemas/ProcessStatus"
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          x-go-type: uint8
+          readOnly: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+        startedAt:
+          type: string
+          nullable: true
+          format: date-time
+          readOnly: true
+        endedAt:
+          type: string
+          nullable: true
+          format: date-time
+          readOnly: true
+        owner:
+          type: string
+          readOnly: true
+        resultsUrl:
+          type: string
+          nullable: true
+          format: uri
+      required:
+        - id
+        - name
+        - state
+        - status
+        - progress
+        - createdAt
+        - updatedAt
+        - startedAt
+        - endedAt
+        - owner
+        - resultsUrl
+      additionalProperties: false
+      x-tags:
+        - Process
+    ProcessResultsResponse:
+      description: ''
+      type: object
+      examples:
+        - id: '00000000-1111-2222-4444-555555555555'
+          errors: null
+          data:
+            reportUrl: "https://examples.com/downloads/report-0001.pdf"
+          meta:
+            name: 'operation-unique-name-1'
+            state: 'COMPLETED'
+            status: 'SUCCESS'
+            progress: 100
+            createdAt: '2000-10-31T01:30:00.000-05:00'
+            updatedAt: '2000-10-31T01:30:00.000-05:00'
+            startedAt: '2000-10-31T01:30:00.000-05:00'
+            endedAt: '2000-10-31T01:30:00.000-05:00'
+            owner: 'username'
+      properties:
+        id:
+          type: string
+          format: uuid
+        meta:
+          type: object
+          nullable: true
+          additionalProperties: false
+          properties:
+            name:
+              $ref: "#/components/schemas/ProcessName"
+            state:
+              $ref: "#/components/schemas/ProcessState"
+            status:
+              $ref: "#/components/schemas/ProcessStatus"
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            startedAt:
+              type: string
+              format: date-time
+            endedAt:
+              type: string
+              format: date-time
+            owner:
+              type: string
+          required:
+            - name
+            - state
+            - status
+            - createdAt
+            - updatedAt
+            - startedAt
+            - endedAt
+            - owner
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+        errors:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Error'
+          uniqueItems: true
+          minItems: 1
+      required:
+        - id
+        - name
+        - state
+        - status
+        - progress
+        - createdAt
+        - updatedAt
+        - startedAt
+        - endedAt
+        - owner
+        - resultsUrl
+      additionalProperties: false
+      x-tags:
+        - Process
+    AuthAccount:
+      type: object
+      x-tags:
+        - Auth
+      examples:
+        - first_name: First name
+          last_name: Last name
+          username: Username
+          email: user@example.com
+          status: ACTIVE
+          role: USER
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        username:
+          type: string
+          maxLength: 20
+          minLength: 4
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+            - INVALID
+          readOnly: true
+        role:
+          type: string
+          enum:
+            - USER
+            - ADMIN
+          readOnly: true
+      required:
+        - username
+        - email
+        - status
+        - role
+      description: Auth User data structure
+      additionalProperties: false
+    AuthForm:
+      type: object
+      x-tags:
+        - Auth
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+          writeOnly: true
+      required:
+        - email
+        - password
+      description: User login form structure
+      additionalProperties: false
+    Error:
+      x-tags:
+        - Errors
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          minimum: 0
+          x-go-type: uint
+          description: A unique identifier for this particular occurrence of the problem.
+        status:
+          type: integer
+          minimum: 0
+          x-go-type: uint
+          description: The HTTP status code applicable to this problem.
+        code:
+          type: integer
+          minimum: 0
+          x-go-type: uint
+          description: 'An application-specific error code, unique for this type of error.'
+        title:
+          type: string
+        detail:
+          type: string
+        source:
+          type: object
+          properties:
+            pointer:
+              type: string
+              description: 'A [JSON Pointer](https://tools.ietf.org/html/rfc6901) to the associated entity in the request document [e.g. `/data` for a primary data object, or `/data/attributes/title` for a specific attribute.'
+            parameter:
+              type: string
+              description: A string indicating which query parameter caused the error.
+        meta:
+          type: object
+          additionalProperties:
+            type: string
+          description: Non-standard meta-information that can not be represented as an attribute or relationship.
+      required:
+        - status
+        - title
+    ErrorResponse:
+      x-tags:
+        - Errors
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error'
+          uniqueItems: true
+          minItems: 1
+      required:
+        - errors
+    Pagination:
+      type: object
+      x-tags:
+        - Other
+      properties:
+        first:
+          $ref: '#/components/schemas/PageRef'
+          description: The first page of data
+        last:
+          $ref: '#/components/schemas/PageRef'
+          description: The last page of data
+        prev:
+          $ref: '#/components/schemas/PageRef'
+          description: The prev page of data
+        next:
+          $ref: '#/components/schemas/PageRef'
+          description: The next page of data
+    PageRef:
+      x-tags:
+        - Other
+      oneOf:
+        - type: string
+          format: uri-reference
+        - type: null
+  parameters:
+    processId:
+      name: processId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: 00000000-1111-2222-4444-555555555555
+      description: Process unique ID (UUID)
+    include:
+      name: include
+      in: query
+      description: '[list of included related resources](https://jsonapi.org/format/#fetching-includes)'
+      required: false
+      style: form
+      schema:
+        type: string
+    fields:
+      name: fields
+      in: query
+      description: |
+        Which field to use when ordering the results.
+        [sparse fieldsets](https://jsonapi.org/format/#fetching-sparse-fieldsets).
+        Use fields[\<typename\>]=field1,field2,...,fieldN'
+      required: false
+      style: deepObject
+      schema:
+        type: object
+        additionalProperties: false
+      explode: true
+    sort:
+      name: sort
+      in: query
+      description: '[list of fields to sort by](https://jsonapi.org/format/#fetching-sorting)'
+      required: false
+      style: form
+      schema:
+        type: string
+    page:
+      name: page
+      in: query
+      description: |
+        [Pagination](https://jsonapi.org/format/#fetching-pagination).
+        For a page-based strategy, use query parameters  page[number] and page[size].
+        For an offset-based strategy, use page[offset] and page[limit].
+      required: false
+      style: deepObject
+      schema:
+        type: object
+        additionalProperties: false
+        properties:
+          number:
+            type: integer
+            minimum: 1
+            x-go-type: uint
+            description: A page number within the paginated result set.
+          size:
+            type: integer
+            minimum: 1
+            maximum: 100
+            x-go-type: uint
+            description: Number of results to return per page.
+          offset:
+            type: integer
+            x-go-type: uint
+            description: The number of items to skip before starting to collect the result set
+          limit:
+            type: integer
+            x-go-type: uint
+            minimum: 1
+            maximum: 100
+            description: The numbers of items to return
+      explode: true
+  responses:
+    UnauthorizedError:
+      x-tags:
+        - Errors
+      description: Access token is missing or invalid
+      headers: {}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            example-1:
+              value:
+                errors:
+                  - status: 401
+                    title: Request Unauthorized
+    NotFoundError:
+      x-tags:
+        - Errors
+      description: Resource not found
+      headers: {}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            example-1:
+              value:
+                errors:
+                  - status: 404
+                    title: Not Found
+    RateLimitError:
+      x-tags:
+        - Errors
+      description: User definied Rate Limit to access/allocate ressources has been exceeded.
+      headers: {}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            example-1:
+              value:
+                errors:
+                  - status: 403
+                    title: Rate Limit Error
+    BadRequestError:
+      x-tags:
+        - Errors
+      description: Request content error due to syntax or semantic errors
+      headers: {}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            example-1:
+              value:
+                errors:
+                  - status: 400
+                    title: Bad Request Error
+  examples: {}
+  requestBodies: {}
+  headers: {}
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Authentication with JWT Token send as Authorization header Bearer parameter
+    accessToken:
+      name: access_token
+      type: apiKey
+      in: query
+      description: Authentication with JWT Token send as a query param named 'access_token'
+    accessTokenCookie:
+      name: access_token
+      type: apiKey
+      in: cookie
+      description: Authentication with JWT Token send as a cookie named 'access_token'
+security:
+  - jwtAuth: []
+  - accessToken: []
+  - accessTokenCookie: []
+tags:
+  - name: Process
+  - name: Auth
+  - name: Errors
+  - name: Other
