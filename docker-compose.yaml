@@ -1,0 +1,33 @@
+version: "3.9"
+services:
+  process-executor:
+    image: process-executor:latest
+    build: ./
+    deploy:
+      replicas: 1
+      mode: global
+    volumes:
+      - type: bind
+        source: ./test.db
+        target: /test.db
+    #configs:
+    #  - config.yaml
+    #env_file: .env
+  process-api:
+    image: process-api:latest
+    build: ./
+    deploy:
+      replicas: 1
+      mode: global
+    volumes:
+      - type: bind
+        source: ./test.db
+        target: /test.db
+    ports:
+      - "8080:8080"
+    #configs:
+    #  - config.yaml
+    #env_file: .env
+#configs:
+#  config.yaml:
+#    file: ./config.yaml

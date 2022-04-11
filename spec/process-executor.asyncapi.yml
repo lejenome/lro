@@ -9,11 +9,11 @@ info:
     email: moez@tik.tn
   license:
     name: Apache 2.0
-    identifier: Apache-2.0
+    # identifier: Apache-2.0
     url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
   version: 0.1.0
   description: Process Executor - Service to trigger long running processes remotely
-  summary: Process Executor - Service to trigger long running processes remotely
+  # summary: Process Executor - Service to trigger long running processes remotely
 defaultContentType: application/json
 servers:
   services.auction.nats:
@@ -38,7 +38,9 @@ channels:
     publish:
       operationId: PubProcessInfo
       message:
-        $ref: "./components/process.yml#/components/schemas/ProcessInfo"
+        name: ProcessInfo
+        payload:
+          $ref: "./components/process.yml#/components/schemas/ProcessInfo"
     subscribe:
       operationId: SubAllProcessInfoRequested
       message:
@@ -48,32 +50,44 @@ channels:
     publish:
       operationId: PubProcessRegistred
       message:
-        $ref: "./components/process.yml#/components/schemas/ProcessInfo"
+        name: ProcessRegistred
+        payload:
+          $ref: "./components/process.yml#/components/schemas/ProcessInfo"
   process/unregistred:
     publish:
       operationId: PubProcessUnregistred
       message:
-        $ref: "./components/process.yml#/components/schemas/ProcessName"
+        name: ProcessUnregistred
+        payload:
+          $ref: "./components/process.yml#/components/schemas/ProcessName"
   process/job/scheduled:
     subscribe:
-      operationId: SubProcessScheduled
+      operationId: SubProcessJobScheduled
       message:
-        $ref: "./components/process.yml#/components/schemas/TriggerProcessRequest"
+        name: ProcessJobScheduled
+        payload:
+          $ref: "./components/process.yml#/components/schemas/TriggerProcessRequest"
   process/job/status:
     publish:
-      operationId: PubProcessStatus
+      operationId: PubProcessJobStatus
       message:
-        $ref: "./components/process.yml#/components/schemas/ProcessStatusResponse"
+        name: ProcessJobStatus
+        payload:
+          $ref: "./components/process.yml#/components/schemas/ProcessStatusResponse"
   process/job/results:
     publish:
-      operationId: PubProcessResults
+      operationId: PubProcessJobResults
       message:
-        $ref: "./components/process.yml#/components/schemas/ProcessResultsResponse"
+        name: ProcessJobResults
+        payload:
+          $ref: "./components/process.yml#/components/schemas/ProcessResultsResponse"
   process/job/cancel:
     publish:
-      operationId: PubProcessCancel
+      operationId: PubProcessJobCancel
       message:
-        $ref: "./components/process.yml#/components/schemas/JobId"
+        name: ProcessJobCancel
+        payload:
+          $ref: "./components/process.yml#/components/schemas/JobId"
 components:
   messages: {}
   parameters: {}
