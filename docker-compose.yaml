@@ -1,33 +1,98 @@
 version: "3.9"
 services:
   process-executor:
-    image: process-executor:latest
-    build: ./
+    image: lro/process-executor:latest
+    build: ./services/process-executor
     deploy:
       replicas: 1
       mode: global
-    volumes:
-      - type: bind
-        source: ./test.db
-        target: /test.db
+      restart_policy:
+        condition: on-failure
+    # volumes:
+    #   - type: bind
+    #     source: ./test.db
+    #     target: /test.db
     #configs:
     #  - config.yaml
-    #env_file: .env
+    env_file:
+      - ./configs/dev/process-executor.env
+    networks:
+      - process-services
+    depends_on:
+      - db
+      - nats
+      - redis
   process-api:
-    image: process-api:latest
-    build: ./
+    image: lro/process-api:latest
+    build: ./services/process-api
     deploy:
       replicas: 1
       mode: global
-    volumes:
-      - type: bind
-        source: ./test.db
-        target: /test.db
+    #volumes:
+    #  - type: bind
+    #    source: ./test.db
+    #    target: /test.db
     ports:
       - "8080:8080"
+    env_file:
+      - ./configs/dev/process-api.env
     #configs:
     #  - config.yaml
     #env_file: .env
+    networks:
+      - process-services
+    depends_on:
+      - db
+      - nats
+      - redis
+
+  nats:
+    build: ./services/nats
+    image: lro/nats
+    deploy:
+      restart_policy:
+        condition: on-failure
+    ports:
+      - 4222:4222
+    env_file:
+      - ./configs/dev/nats.env
+    volumes:
+      - nats:/nats
+    networks:
+      - process-services
+  db:
+    build: ./services/db
+    image: lro/db
+    deploy:
+      restart_policy:
+        condition: on-failure
+    env_file:
+      - ./configs/dev/db.env
+    ports:
+      - 5432:5432
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - process-services
+  redis:
+    build: ./services/redis
+    image: lro/redis
+    deploy:
+      restart_policy:
+        condition: on-failure
+    ports:
+      - 6379:6379
+    volumes:
+      - redis:/data
+    networks:
+      - process-services
+networks:
+  process-services:
+
+volumes:
+  db:
+  nats:
+  redis:
 #configs:
 #  config.yaml:
 #    file: ./config.yaml
