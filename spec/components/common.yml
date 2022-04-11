@@ -1,0 +1,207 @@
+components:
+  schemas:
+    Error:
+      x-tags:
+        - Errors
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          minimum: 0
+          x-go-type: uint
+          description: A unique identifier for this particular occurrence of the problem.
+        status:
+          type: integer
+          minimum: 0
+          x-go-type: uint
+          description: The HTTP status code applicable to this problem.
+        code:
+          type: integer
+          minimum: 0
+          x-go-type: uint
+          description: 'An application-specific error code, unique for this type of error.'
+        title:
+          type: string
+        detail:
+          type: string
+        source:
+          type: object
+          properties:
+            pointer:
+              type: string
+              description: 'A [JSON Pointer](https://tools.ietf.org/html/rfc6901) to the associated entity in the request document [e.g. `/data` for a primary data object, or `/data/attributes/title` for a specific attribute.'
+            parameter:
+              type: string
+              description: A string indicating which query parameter caused the error.
+        meta:
+          type: object
+          additionalProperties:
+            type: string
+          description: Non-standard meta-information that can not be represented as an attribute or relationship.
+      required:
+        - status
+        - title
+    ErrorResponse:
+      x-tags:
+        - Errors
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error'
+          uniqueItems: true
+          minItems: 1
+      required:
+        - errors
+    Pagination:
+      type: object
+      x-tags:
+        - Other
+      properties:
+        first:
+          $ref: '#/components/schemas/PageRef'
+          description: The first page of data
+        last:
+          $ref: '#/components/schemas/PageRef'
+          description: The last page of data
+        prev:
+          $ref: '#/components/schemas/PageRef'
+          description: The prev page of data
+        next:
+          $ref: '#/components/schemas/PageRef'
+          description: The next page of data
+    PageRef:
+      x-tags:
+        - Other
+      oneOf:
+        - type: string
+          format: uri-reference
+        - type: null
+  parameters:
+    include:
+      name: include
+      in: query
+      description: '[list of included related resources](https://jsonapi.org/format/#fetching-includes)'
+      required: false
+      style: form
+      schema:
+        type: string
+    fields:
+      name: fields
+      in: query
+      description: |
+        Which field to use when ordering the results.
+        [sparse fieldsets](https://jsonapi.org/format/#fetching-sparse-fieldsets).
+        Use fields[\<typename\>]=field1,field2,...,fieldN'
+      required: false
+      style: deepObject
+      schema:
+        type: object
+        additionalProperties: false
+      explode: true
+    sort:
+      name: sort
+      in: query
+      description: '[list of fields to sort by](https://jsonapi.org/format/#fetching-sorting)'
+      required: false
+      style: form
+      schema:
+        type: string
+    page:
+      name: page
+      in: query
+      description: |
+        [Pagination](https://jsonapi.org/format/#fetching-pagination).
+        For a page-based strategy, use query parameters  page[number] and page[size].
+        For an offset-based strategy, use page[offset] and page[limit].
+      required: false
+      style: deepObject
+      schema:
+        type: object
+        additionalProperties: false
+        properties:
+          number:
+            type: integer
+            minimum: 1
+            x-go-type: uint
+            description: A page number within the paginated result set.
+          size:
+            type: integer
+            minimum: 1
+            maximum: 100
+            x-go-type: uint
+            description: Number of results to return per page.
+          offset:
+            type: integer
+            x-go-type: uint
+            description: The number of items to skip before starting to collect the result set
+          limit:
+            type: integer
+            x-go-type: uint
+            minimum: 1
+            maximum: 100
+            description: The numbers of items to return
+      explode: true
+  responses:
+    UnauthorizedError:
+      x-tags:
+        - Errors
+      description: Access token is missing or invalid
+      headers: {}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            example-1:
+              value:
+                errors:
+                  - status: 401
+                    title: Request Unauthorized
+    NotFoundError:
+      x-tags:
+        - Errors
+      description: Resource not found
+      headers: {}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            example-1:
+              value:
+                errors:
+                  - status: 404
+                    title: Not Found
+    RateLimitError:
+      x-tags:
+        - Errors
+      description: User definied Rate Limit to access/allocate ressources has been exceeded.
+      headers: {}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            example-1:
+              value:
+                errors:
+                  - status: 403
+                    title: Rate Limit Error
+    BadRequestError:
+      x-tags:
+        - Errors
+      description: Request content error due to syntax or semantic errors
+      headers: {}
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            example-1:
+              value:
+                errors:
+                  - status: 400
+                    title: Bad Request Error

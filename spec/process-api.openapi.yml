@@ -1,0 +1,210 @@
+---
+openapi: 3.1.0
+id: 'urn:com:lejenome:lro:process-api:rest-api'
+info:
+  title: Long Running Process Service
+  contact:
+    name: Moez Bouhlel
+    url: 'https://lejenome.tik.tn/'
+    email: moez@tik.tn
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+  version: 0.1.0
+  description: Service to trigger long running processes remotely
+  summary: Service to trigger long running processes remotely
+servers:
+  - url: 'http://localhost:{port}/{basePath}'
+    description: Local dev server
+    variables:
+      port:
+        default: "8080"
+      basePath:
+        default: api/v0.1
+paths:
+  /process:
+    get:
+      operationId: ListAvailableProcesses
+      summary: List available processes
+      description: List available processes that can be scheduled
+      responses:
+        '200':
+          description: List of processes
+          content:
+            application/json:
+              schema:
+                type: array
+                uniqueItems: true
+                items:
+                  $ref: './components/process.yml#/components/schemas/ProcessInfo'
+        '401':
+          $ref: './components/common.yml#/components/responses/UnauthorizedError'
+      tags:
+        - Process
+  /process/jobs:
+    get:
+      operationId: ListJobs
+      summary: List Jobs
+      description: List user triggered processes jobs
+      responses:
+        '200':
+          description: List of user triggered processes jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                uniqueItems: true
+                items:
+                  $ref: './components/process.yml#/components/schemas/JobShortInfo'
+        '401':
+          $ref: './components/common.yml#/components/responses/UnauthorizedError'
+      tags:
+        - Process
+    post:
+      operationId: TriggerProcessJob
+      summary: Trigger Process Job
+      description: Trigger a process remotely
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './components/process.yml#/components/schemas/TriggerProcessRequest'
+        description: ''
+      responses:
+        '202':
+          description: Process scheduled for execution
+          headers:
+            Content-Location:
+              schema:
+                type: string
+                format: uri
+              description: URL to process job status endpoint
+          content:
+            application/json:
+              schema:
+                $ref: './components/process.yml#/components/schemas/JobShortInfo'
+          links:
+            status:
+              operationId: GetProcessStatus
+              parameters:
+                jobId: $request.body#/id
+        '400':
+          $ref: './components/common.yml#/components/responses/BadRequestError'
+        '401':
+          $ref: './components/common.yml#/components/responses/UnauthorizedError'
+        '403':
+          $ref: './components/common.yml#/components/responses/RateLimitError'
+        '404':
+          $ref: './components/common.yml#/components/responses/NotFoundError'
+      tags:
+        - Process
+  '/process/jobs/{jobId}/status':
+    parameters:
+      - $ref: '#/components/parameters/jobId'
+    get:
+      operationId: GetProcessStatus
+      summary: Get Process Status
+      description: Get the current status of the process
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components/process.yml#/components/schemas/ProcessStatusResponse"
+          links:
+            status:
+              operationId: GetProcessResults
+              parameters:
+                jobId: $request.path.jobId
+            cancel:
+              operationId: CancelProcess
+              parameters:
+                jobId: $request.path.jobId
+        '401':
+          $ref: './components/common.yml#/components/responses/UnauthorizedError'
+        '404':
+          $ref: './components/common.yml#/components/responses/NotFoundError'
+      tags:
+        - Process
+  '/process/jobs/{jobId}/results':
+    parameters:
+      - $ref: '#/components/parameters/jobId'
+    get:
+      operationId: GetProcessResults
+      summary: Get Process Results
+      description: Get the results/output of the completed process
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "./components/process.yml#/components/schemas/ProcessResultsResponse"
+        '401':
+          $ref: './components/common.yml#/components/responses/UnauthorizedError'
+        '404':
+          $ref: './components/common.yml#/components/responses/NotFoundError'
+      tags:
+        - Process
+  '/process/jobs/{jobId}/cancel':
+    parameters:
+      - $ref: '#/components/parameters/jobId'
+    post:
+      operationId: CancelProcess
+      summary: Cancel Process
+      description: Cancel execultion of a scheduled process (Process should be in SCHEDULED state).
+      responses:
+        '204':
+          description: Process scheduled execution canceled
+        '400':
+          $ref: './components/common.yml#/components/responses/BadRequestError'
+          desciption: Process can not canceled. It either does not implement cancel operation or it is currently running or it was already completed execution.
+        '401':
+          $ref: './components/common.yml#/components/responses/UnauthorizedError'
+        '404':
+          $ref: './components/common.yml#/components/responses/NotFoundError'
+      tags:
+        - Process
+  /process/metrics:
+    get: null
+  /process/healthz:
+    get: null
+components:
+  parameters:
+    jobId:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        $ref: "./components/process.yml#/components/schemas/JobId"
+      description: Process unique ID (UUID)
+  examples: {}
+  requestBodies: {}
+  headers: {}
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Authentication with JWT Token send as Authorization header Bearer parameter
+    accessToken:
+      name: access_token
+      type: apiKey
+      in: query
+      description: Authentication with JWT Token send as a query param named 'access_token'
+    accessTokenCookie:
+      name: access_token
+      type: apiKey
+      in: cookie
+      description: Authentication with JWT Token send as a cookie named 'access_token'
+security:
+  - jwtAuth: []
+  - accessToken: []
+  - accessTokenCookie: []
+tags:
+  - name: Process
+  - name: Errors
+  - name: Other

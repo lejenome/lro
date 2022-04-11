@@ -1,0 +1,103 @@
+---
+asyncapi: 2.3.0
+id: 'urn:com:lejenome:auth:async-api'
+info:
+  title: Auth Service
+  contact:
+    name: Moez Bouhlel
+    url: 'https://lejenome.tik.tn/'
+    email: moez@tik.tn
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+  version: 0.1.0
+  description: Auth Service
+  summary: Auth Service
+defaultContentType: application/json
+servers:
+  services.auction.nats:
+    protocol: nats
+    url: nats://localhost:{port}
+    variables:
+      port:
+        default: '4222'
+  services.auction.amqp:
+    protocol: amqp
+    url: amqp://guest:guest@localhost:{port}
+    variables:
+      port:
+        default: '5672'
+  services.auction.web:
+    url: ws://localhost/socket.io
+    protocol: ws
+    security:
+      - jwt: []
+channels:
+  auth/user/signup:
+    publish:
+      operationId: PubUserSignup
+      message:
+        $ref: "#/components/messages/UserSignUp"
+  auth/user/login:
+    publish:
+      operationId: PubUserLogin
+      message:
+        $ref: "#/components/messages/UserLogin"
+components:
+  messages:
+    UserSignUp:
+      name: UserSignUp
+      payload:
+        type: object
+        properties:
+          username:
+            type: string
+            description: Name of the user
+          email:
+            type: string
+            format: email
+            description: Email of the user
+          created_at:
+            type: string
+            format: date-time
+            description: the time of the event creation
+        additionalProperties: false
+    UserLogin:
+      name: UserLogin
+      payload:
+        type: object
+        properties:
+          username:
+            type: string
+            description: Name of the user
+          created_at:
+            type: string
+            format: date-time
+            description: the time of the event creation
+        additionalProperties: false
+      examples:
+        - name: SimpleUserLoggedIn
+          summary: A simple UserLoggedIn example message
+          payload:
+            username: user1
+            created_at: 2022-03-01T11:05:33
+  parameters: {}
+  channelBindings:
+    AuthenticatedWsBindings:
+      ws:
+        query:
+          type: object
+          properties:
+            token:
+              type: string
+          required: [token]
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKey:
+      type: httpApiKey
+      name: api_key
+      in: query

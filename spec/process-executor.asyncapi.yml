@@ -1,0 +1,97 @@
+---
+asyncapi: 2.3.0
+id: 'urn:com:lejenome:lro:process-executor:async-api'
+info:
+  title: Process Executor - Long Running Process Service
+  contact:
+    name: Moez Bouhlel
+    url: 'https://lejenome.tik.tn/'
+    email: moez@tik.tn
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+  version: 0.1.0
+  description: Process Executor - Service to trigger long running processes remotely
+  summary: Process Executor - Service to trigger long running processes remotely
+defaultContentType: application/json
+servers:
+  services.auction.nats:
+    protocol: nats
+    url: nats://localhost:{port}
+    variables:
+      port:
+        default: '4222'
+  services.auction.amqp:
+    protocol: amqp
+    url: amqp://guest:guest@localhost:{port}
+    variables:
+      port:
+        default: '5672'
+  services.auction.web:
+    url: ws://localhost/socket.io
+    protocol: ws
+    security:
+      - jwt: []
+channels:
+  process/info:
+    publish:
+      operationId: PubProcessInfo
+      message:
+        $ref: "./components/process.yml#/components/schemas/ProcessInfo"
+    subscribe:
+      operationId: SubAllProcessInfoRequested
+      message:
+        name: ProcessInfoRequested
+        # payload: null
+  process/registred:
+    publish:
+      operationId: PubProcessRegistred
+      message:
+        $ref: "./components/process.yml#/components/schemas/ProcessInfo"
+  process/unregistred:
+    publish:
+      operationId: PubProcessUnregistred
+      message:
+        $ref: "./components/process.yml#/components/schemas/ProcessName"
+  process/job/scheduled:
+    subscribe:
+      operationId: SubProcessScheduled
+      message:
+        $ref: "./components/process.yml#/components/schemas/TriggerProcessRequest"
+  process/job/status:
+    publish:
+      operationId: PubProcessStatus
+      message:
+        $ref: "./components/process.yml#/components/schemas/ProcessStatusResponse"
+  process/job/results:
+    publish:
+      operationId: PubProcessResults
+      message:
+        $ref: "./components/process.yml#/components/schemas/ProcessResultsResponse"
+  process/job/cancel:
+    publish:
+      operationId: PubProcessCancel
+      message:
+        $ref: "./components/process.yml#/components/schemas/JobId"
+components:
+  messages: {}
+  parameters: {}
+  channelBindings:
+    AuthenticatedWsBindings:
+      ws:
+        query:
+          type: object
+          properties:
+            token:
+              type: string
+          required: [token]
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKey:
+      type: httpApiKey
+      name: api_key
+      in: query

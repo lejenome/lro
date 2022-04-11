@@ -1,0 +1,205 @@
+---
+openapi: 3.1.0
+id: 'urn:com:lejenome:auth:rest-api'
+info:
+  title: Auth Service
+  contact:
+    name: Moez Bouhlel
+    url: 'https://lejenome.tik.tn/'
+    email: moez@tik.tn
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+  version: 0.1.0
+  description: Auth Service
+  summary: Auth Service
+servers:
+  - url: 'http://localhost:{port}/{basePath}'
+    description: Local dev server
+    variables:
+      port:
+        default: "8080"
+      basePath:
+        default: api/v0.1
+paths:
+  /auth/account/me:
+    get:
+      operationId: GetAuthAccount
+      summary: Get Auth Account
+      description: Get the user account of the authenticated user
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './components/auth.yml#/components/schemas/AuthAccount'
+        '401':
+          $ref: './components/common.yml#/components/responses/UnauthorizedError'
+      x-internal: false
+      tags:
+        - Auth
+  /auth/login:
+    post:
+      operationId: Login
+      summary: Login
+      description: Login to the user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './components/auth.yml#/components/schemas/AuthForm'
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - token
+                  - refreshToken
+                  - account
+                properties:
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+                  account:
+                    $ref: './components/auth.yml#/components/schemas/AuthAccount'
+        '204':
+          description: '[No Content](https://jsonapi.org/format/#crud-deleting-responses-204)'
+        '401':
+          $ref: './components/common.yml#/components/responses/UnauthorizedError'
+      tags:
+        - Auth
+      security: []
+  /auth/register:
+    post:
+      operationId: Register
+      summary: Register Account
+      description: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './components/auth.yml#/components/schemas/AuthForm'
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - token
+                  - refreshToken
+                  - account
+                properties:
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+                  account:
+                    $ref: './components/auth.yml#/components/schemas/AuthAccount'
+        '400':
+          $ref: './components/common.yml#/components/responses/BadRequestError'
+      tags:
+        - Auth
+      security: []
+  /auth/jwt/validate:
+    post:
+      operationId: JwtValidate
+      summary: Validate JWT
+      description: Validate JWT Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required:
+                - token
+              additionalProperties: false
+      responses:
+        '204':
+          description: No Content
+        '400':
+          $ref: './components/common.yml#/components/responses/BadRequestError'
+      tags:
+        - Auth
+      security: []
+  /auth/jwt/refresh:
+    post:
+      operationId: JwtRefresh
+      summary: Refresh JWT
+      description: Refresh JWT Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required:
+                - refreshToken
+              additionalProperties: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - token
+                  - refreshToken
+                properties:
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+                additionalProperties: false
+        '400':
+          $ref: './components/common.yml#/components/responses/BadRequestError'
+      tags:
+        - Auth
+      security: []
+components:
+  examples: {}
+  requestBodies: {}
+  headers: {}
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Authentication with JWT Token send as Authorization header Bearer parameter
+    accessToken:
+      name: access_token
+      type: apiKey
+      in: query
+      description: Authentication with JWT Token send as a query param named 'access_token'
+    accessTokenCookie:
+      name: access_token
+      type: apiKey
+      in: cookie
+      description: Authentication with JWT Token send as a cookie named 'access_token'
+security:
+  - jwtAuth: []
+  - accessToken: []
+  - accessTokenCookie: []
+tags:
+  - name: Auth
+  - name: Errors
+  - name: Other
