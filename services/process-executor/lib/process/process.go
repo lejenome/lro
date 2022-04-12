@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type ProcessConfig struct {
+type ProcessOptions struct {
 	Ctx   context.Context
 	Delay time.Duration
 }

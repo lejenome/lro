@@ -2,14 +2,23 @@ package main
 
 import (
 	"fmt"
+	"log"
 
+	"github.com/google/uuid"
 	"github.com/lejenome/lro/services/process-executor/examples"
 	"github.com/lejenome/lro/services/process-executor/lib/process"
+	"github.com/lejenome/lro/services/process-executor/lib/process/db"
+	"github.com/lejenome/lro/services/process-executor/lib/process/queues"
+	"github.com/lejenome/lro/services/process-executor/lib/process/redis"
 )
 
 func main() {
-	queue := process.DefaultQueue()
-	runner := process.DefaultRunner(queue)
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	cache := redis.RedisJobCache()
+	queue := queues.NatsSubscriber("localhost:4222", "lro", cache)
+	queuePub := queues.NatsPublisher("localhost:4222", "lro", cache)
+	store := db.DBJobStore("postgresql://lrouser@localhost:5432/lro?sslmode=disable&TimeZone=UTC")
+	runner := process.DefaultRunner(queue, store)
 	runner.Register(process.Process{
 		Name:    "greeting:v1",
 		Handler: process.HandlerFunc(examples.GreetingProcessV1),
@@ -56,4 +65,20 @@ func main() {
 		fmt.Printf("= Expected: %v, %v\n", test.Out, test.Err)
 		fmt.Printf("= Got: %v, %v\n", out, err)
 	}
+	for _, test := range tests {
+		_pName := test.In["processName"]
+		_data := test.In["data"]
+		job := &process.Job{
+			ID:          uuid.Nil,
+			ProcessName: _pName.(string),
+			Input:       _data.(map[string]interface{}),
+		}
+		if err := store.Save(job); err != nil {
+			fmt.Printf("%s\n", err)
+		}
+		if err := queuePub.SafeAdd(job); err != nil {
+			fmt.Printf("%s\n", err)
+		}
+	}
+	runner.Run()
 }
