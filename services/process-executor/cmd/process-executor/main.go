@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/google/uuid"
+	"github.com/lejenome/lro/services/process-executor/config"
 	"github.com/lejenome/lro/services/process-executor/examples"
 	"github.com/lejenome/lro/services/process-executor/lib/process"
 	"github.com/lejenome/lro/services/process-executor/lib/process/db"
@@ -14,10 +15,14 @@ import (
 
 func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	cache := redis.RedisJobCache()
-	queue := queues.NatsSubscriber("localhost:4222", "lro", cache)
-	queuePub := queues.NatsPublisher("localhost:4222", "lro", cache)
-	store := db.DBJobStore("postgresql://lrouser@localhost:5432/lro?sslmode=disable&TimeZone=UTC")
+	config, err := config.Load()
+	if err != nil {
+		panic(fmt.Errorf("Config error: %w", err))
+	}
+	cache := redis.RedisJobCache(config.Redis.URL, config.Redis.Username, config.Redis.Password, config.Redis.DB)
+	queue := queues.NatsSubscriber(config.Nats.URL, "lro", cache)
+	queuePub := queues.NatsPublisher(config.Nats.URL, "lro", cache)
+	store := db.DBJobStore(config.Database.URL)
 	runner := process.DefaultRunner(queue, store)
 	runner.Register(process.Process{
 		Name:    "greeting:v1",

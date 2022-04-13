@@ -21,12 +21,13 @@ type redisJobCache struct {
 
 var _ process.JobCache = (*redisJobCache)(nil)
 
-func RedisJobCache() process.JobCache {
+func RedisJobCache(url string, username string, password string, db int) process.JobCache {
 	return &redisJobCache{
 		rdb: redis.NewClient(&redis.Options{
-			Addr:     "localhost:6379",
-			Password: "", // no password set
-			DB:       0,  // use default DB
+			Addr:     url,
+			Password: password,
+			Username: username,
+			DB:       db,
 		}),
 	}
 }

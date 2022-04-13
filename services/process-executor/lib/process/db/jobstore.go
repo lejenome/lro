@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -85,19 +86,39 @@ type dbJobStore struct {
 }
 
 func DBJobStore(dsn string) process.JobStore {
-	DB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		PrepareStmt: true,
-		// SkipDefaultTransaction: true,
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		panic(err.Error())
+	const timeout = 5 * time.Minute
+	timeoutExceeded := time.After(timeout)
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	var db *gorm.DB
+loop:
+	for {
+		select {
+		case <-timeoutExceeded:
+			panic(fmt.Errorf("DB connection failed after %s timeout", timeout))
+
+		case <-ticker.C:
+			var err error
+			db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+				PrepareStmt: true,
+				// SkipDefaultTransaction: true,
+				Logger: logger.Default.LogMode(logger.Silent),
+			})
+			if err == nil {
+				break loop
+			}
+			log.Println(fmt.Errorf("failed to connect to db %s: %w", dsn, err))
+		}
 	}
-	DB.AutoMigrate(&jobT{})
+
+	db.AutoMigrate(&jobT{})
 	return &dbJobStore{
-		db: DB,
+		db: db,
 	}
 }
+
 func (q *dbJobStore) Save(job *process.Job) error {
 	if job.ID != uuid.Nil {
 		return fmt.Errorf("Can not save a job with already defined id '%s'", job.ID.String())

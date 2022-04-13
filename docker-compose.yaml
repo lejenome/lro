@@ -2,29 +2,35 @@ version: "3.9"
 services:
   process-executor:
     image: lro/process-executor:latest
-    build: ./services/process-executor
+    build:
+      context: .
+      dockerfile: ./dockerfiles/process-executor/Dockerfile
     deploy:
       replicas: 1
       mode: global
       restart_policy:
         condition: on-failure
+    read_only: true
     # volumes:
     #   - type: bind
     #     source: ./test.db
     #     target: /test.db
-    #configs:
-    #  - config.yaml
-    env_file:
-      - ./configs/dev/process-executor.env
+    configs:
+      - source: process-executor
+        target: /config.yml
+        mode: 0440
     networks:
       - process-services
     depends_on:
       - db
       - nats
       - redis
+
   process-api:
     image: lro/process-api:latest
-    build: ./services/process-api
+    build:
+      context: .
+      dockerfile: ./dockerfiles/process-api/Dockerfile
     deploy:
       replicas: 1
       mode: global
@@ -32,10 +38,13 @@ services:
     #  - type: bind
     #    source: ./test.db
     #    target: /test.db
+    read_only: true
     ports:
       - "8080:8080"
-    env_file:
-      - ./configs/dev/process-api.env
+    configs:
+      - source: process-api
+        target: /config.yml
+        mode: 0440
     #configs:
     #  - config.yaml
     #env_file: .env
@@ -45,15 +54,16 @@ services:
       - db
       - nats
       - redis
+    # network_mode: "host"
 
   nats:
-    build: ./services/nats
+    build: ./dockerfiles/nats
     image: lro/nats
     deploy:
       restart_policy:
         condition: on-failure
-    ports:
-      - 4222:4222
+    #ports:
+    #  - 4222:4222
     env_file:
       - ./configs/dev/nats.env
     volumes:
@@ -61,38 +71,40 @@ services:
     networks:
       - process-services
   db:
-    build: ./services/db
+    build: ./dockerfiles/db
     image: lro/db
     deploy:
       restart_policy:
         condition: on-failure
     env_file:
       - ./configs/dev/db.env
-    ports:
-      - 5432:5432
+    #ports:
+    #  - 5432:5432
     volumes:
       - db:/var/lib/postgresql/data
     networks:
       - process-services
   redis:
-    build: ./services/redis
+    build: ./dockerfiles/redis
     image: lro/redis
     deploy:
       restart_policy:
         condition: on-failure
-    ports:
-      - 6379:6379
+    #ports:
+    #  - 6379:6379
     volumes:
       - redis:/data
     networks:
       - process-services
+
 networks:
   process-services:
-
 volumes:
   db:
   nats:
   redis:
-#configs:
-#  config.yaml:
-#    file: ./config.yaml
+configs:
+  process-executor:
+    file: ./configs/dev/process-executor.yml
+  process-api:
+    file: ./configs/dev/process-api.yml
