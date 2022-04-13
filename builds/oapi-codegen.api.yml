@@ -1,0 +1,14 @@
+#output:
+#  controllers.gen.go
+# include-tags: []
+# exclude-tags: []
+#package: process
+generate:
+  # "types", "client", "chi-server", "server", "gin", "spec", "skip-fmt",
+  # "skip-prune" (default "types,client,server,spec")
+  - types
+  - gin
+import-mapping:
+  ./components/process.yml: github.com/lejenome/lro/pkg/apis/process
+  ./components/common.yml: github.com/lejenome/lro/pkg/apis/common
+  ./components/auth.yml: github.com/lejenome/lro/pkg/apis/auth

@@ -5,7 +5,8 @@ import (
 	"log"
 
 	"github.com/google/uuid"
-	"github.com/lejenome/lro/services/process-api/config"
+	"github.com/lejenome/lro/pkg/config"
+	api "github.com/lejenome/lro/services/process-api"
 	"github.com/lejenome/lro/services/process-executor/lib/process"
 	"github.com/lejenome/lro/services/process-executor/lib/process/db"
 	"github.com/lejenome/lro/services/process-executor/lib/process/queues"
@@ -14,13 +15,13 @@ import (
 
 func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	config, err := config.Load()
-	if err != nil {
+	var conf api.ProcessApiConfig
+	if err := config.Load(&conf); err != nil {
 		panic(fmt.Errorf("Config error: %w", err))
 	}
-	cache := redis.RedisJobCache(config.Redis.URL, config.Redis.Username, config.Redis.Password, config.Redis.DB)
-	queuePub := queues.NatsPublisher(config.Nats.URL, "lro", cache)
-	store := db.DBJobStore(config.Database.URL)
+	cache := redis.RedisJobCache(conf.Redis.URL, conf.Redis.Username, conf.Redis.Password, conf.Redis.DB)
+	queuePub := queues.NatsPublisher(conf.Nats.URL, "lro", cache)
+	store := db.DBJobStore(conf.Database.URL)
 	tests := []struct {
 		In  map[string]interface{}
 		Out interface{}

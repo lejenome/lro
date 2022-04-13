@@ -7,10 +7,8 @@ generate:
   # "types", "client", "chi-server", "server", "gin", "spec", "skip-fmt",
   # "skip-prune" (default "types,client,server,spec")
   - types
-  - gin
-  # - skip-prune
-  - spec
+  - skip-prune
 import-mapping:
-  ./components/process.yml: github.com/lejenome/lro/pkg/apis/process
-  ./components/common.yml: github.com/lejenome/lro/pkg/apis/common
-  ./components/auth.yml: github.com/lejenome/lro/pkg/apis/auth
+  ./common.yml: github.com/lejenome/lro/pkg/apis/common
+  ./process.yml: github.com/lejenome/lro/pkg/apis/process
+  ./auth.yml: github.com/lejenome/lro/pkg/apis/auth

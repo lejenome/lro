@@ -4,145 +4,140 @@
 package common
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"net/url"
-	"path"
-	"strings"
-
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/gin-gonic/gin"
-	externalRef0 "github.com/lejenome/lro/pkg/apis/auth"
-	externalRef1 "github.com/lejenome/lro/pkg/apis/common"
-	externalRef2 "github.com/lejenome/lro/pkg/apis/process"
 )
 
-// ServerInterface represents all server handlers.
-type ServerInterface interface {
+// Error defines model for Error.
+type Error struct {
+	// An application-specific error code, unique for this type of error.
+	Code   *uint   `json:"code,omitempty"`
+	Detail *string `json:"detail,omitempty"`
+
+	// A unique identifier for this particular occurrence of the problem.
+	Id *uint `json:"id,omitempty"`
+
+	// Non-standard meta-information that can not be represented as an attribute or relationship.
+	Meta   *Error_Meta `json:"meta,omitempty"`
+	Source *struct {
+		// A string indicating which query parameter caused the error.
+		Parameter *string `json:"parameter,omitempty"`
+
+		// A [JSON Pointer](https://tools.ietf.org/html/rfc6901) to the associated entity in the request document [e.g. `/data` for a primary data object, or `/data/attributes/title` for a specific attribute.
+		Pointer *string `json:"pointer,omitempty"`
+	} `json:"source,omitempty"`
+
+	// The HTTP status code applicable to this problem.
+	Status uint   `json:"status"`
+	Title  string `json:"title"`
 }
 
-// ServerInterfaceWrapper converts contexts to parameters.
-type ServerInterfaceWrapper struct {
-	Handler            ServerInterface
-	HandlerMiddlewares []MiddlewareFunc
+// Non-standard meta-information that can not be represented as an attribute or relationship.
+type Error_Meta struct {
+	AdditionalProperties map[string]string `json:"-"`
 }
 
-type MiddlewareFunc func(c *gin.Context)
-
-// GinServerOptions provides options for the Gin server.
-type GinServerOptions struct {
-	BaseURL     string
-	Middlewares []MiddlewareFunc
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse struct {
+	Errors []Error `json:"errors"`
 }
 
-// RegisterHandlers creates http.Handler with routing matching OpenAPI spec.
-func RegisterHandlers(router *gin.Engine, si ServerInterface) *gin.Engine {
-	return RegisterHandlersWithOptions(router, si, GinServerOptions{})
+// PageRef defines model for PageRef.
+type PageRef interface{}
+
+// Pagination defines model for Pagination.
+type Pagination struct {
+	First *PageRef `json:"first,omitempty"`
+	Last  *PageRef `json:"last,omitempty"`
+	Next  *PageRef `json:"next,omitempty"`
+	Prev  *PageRef `json:"prev,omitempty"`
 }
 
-// RegisterHandlersWithOptions creates http.Handler with additional options
-func RegisterHandlersWithOptions(router *gin.Engine, si ServerInterface, options GinServerOptions) *gin.Engine {
+// Fields defines model for fields.
+type Fields map[string]interface{}
 
-	return router
+// Include defines model for include.
+type Include string
+
+// Page defines model for page.
+type Page struct {
+	// The numbers of items to return
+	Limit *uint `json:"limit,omitempty"`
+
+	// A page number within the paginated result set.
+	Number *uint `json:"number,omitempty"`
+
+	// The number of items to skip before starting to collect the result set
+	Offset *uint `json:"offset,omitempty"`
+
+	// Number of results to return per page.
+	Size *uint `json:"size,omitempty"`
 }
 
-// Base64 encoded, gzipped, json marshaled Swagger object
-var swaggerSpec = []string{
+// Sort defines model for sort.
+type Sort string
 
-	"H4sIAAAAAAAC/6pWSs7PLcjPS80rKVayqq7VUcrMS8tXssorzcnRUcovSM1LLMhUslJS0lEqSCzJKIbI",
-	"1AICAAD//90sQDE3AAAA",
-}
+// BadRequestError defines model for BadRequestError.
+type BadRequestError ErrorResponse
 
-// GetSwagger returns the content of the embedded swagger specification file
-// or error if failed to decode
-func decodeSpec() ([]byte, error) {
-	zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
-	if err != nil {
-		return nil, fmt.Errorf("error base64 decoding spec: %s", err)
-	}
-	zr, err := gzip.NewReader(bytes.NewReader(zipped))
-	if err != nil {
-		return nil, fmt.Errorf("error decompressing spec: %s", err)
-	}
-	var buf bytes.Buffer
-	_, err = buf.ReadFrom(zr)
-	if err != nil {
-		return nil, fmt.Errorf("error decompressing spec: %s", err)
-	}
+// NotFoundError defines model for NotFoundError.
+type NotFoundError ErrorResponse
 
-	return buf.Bytes(), nil
-}
+// RateLimitError defines model for RateLimitError.
+type RateLimitError ErrorResponse
 
-var rawSpec = decodeSpecCached()
+// UnauthorizedError defines model for UnauthorizedError.
+type UnauthorizedError ErrorResponse
 
-// a naive cached of a decoded swagger spec
-func decodeSpecCached() func() ([]byte, error) {
-	data, err := decodeSpec()
-	return func() ([]byte, error) {
-		return data, err
-	}
-}
-
-// Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
-func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
-	var res = make(map[string]func() ([]byte, error))
-	if len(pathToFile) > 0 {
-		res[pathToFile] = rawSpec
-	}
-
-	pathPrefix := path.Dir(pathToFile)
-
-	for rawPath, rawFunc := range externalRef0.PathToRawSpec(path.Join(pathPrefix, "./components/auth.yml")) {
-		if _, ok := res[rawPath]; ok {
-			// it is not possible to compare functions in golang, so always overwrite the old value
-		}
-		res[rawPath] = rawFunc
-	}
-	for rawPath, rawFunc := range externalRef1.PathToRawSpec(path.Join(pathPrefix, "./components/common.yml")) {
-		if _, ok := res[rawPath]; ok {
-			// it is not possible to compare functions in golang, so always overwrite the old value
-		}
-		res[rawPath] = rawFunc
-	}
-	for rawPath, rawFunc := range externalRef2.PathToRawSpec(path.Join(pathPrefix, "./components/process.yml")) {
-		if _, ok := res[rawPath]; ok {
-			// it is not possible to compare functions in golang, so always overwrite the old value
-		}
-		res[rawPath] = rawFunc
-	}
-	return res
-}
-
-// GetSwagger returns the Swagger specification corresponding to the generated code
-// in this file. The external references of Swagger specification are resolved.
-// The logic of resolving external references is tightly connected to "import-mapping" feature.
-// Externally referenced files must be embedded in the corresponding golang packages.
-// Urls can be supported but this task was out of the scope.
-func GetSwagger() (swagger *openapi3.T, err error) {
-	var resolvePath = PathToRawSpec("")
-
-	loader := openapi3.NewLoader()
-	loader.IsExternalRefsAllowed = true
-	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
-		var pathToFile = url.String()
-		pathToFile = path.Clean(pathToFile)
-		getSpec, ok := resolvePath[pathToFile]
-		if !ok {
-			err1 := fmt.Errorf("path not found: %s", pathToFile)
-			return nil, err1
-		}
-		return getSpec()
-	}
-	var specData []byte
-	specData, err = rawSpec()
-	if err != nil {
-		return
-	}
-	swagger, err = loader.LoadFromData(specData)
-	if err != nil {
-		return
+// Getter for additional properties for Error_Meta. Returns the specified
+// element and whether it was found
+func (a Error_Meta) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
 	}
 	return
+}
+
+// Setter for additional properties for Error_Meta
+func (a *Error_Meta) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for Error_Meta to handle AdditionalProperties
+func (a *Error_Meta) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for Error_Meta to handle AdditionalProperties
+func (a Error_Meta) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
 }

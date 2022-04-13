@@ -5,7 +5,8 @@ import (
 	"log"
 
 	"github.com/google/uuid"
-	"github.com/lejenome/lro/services/process-executor/config"
+	"github.com/lejenome/lro/pkg/config"
+	executor "github.com/lejenome/lro/services/process-executor"
 	"github.com/lejenome/lro/services/process-executor/examples"
 	"github.com/lejenome/lro/services/process-executor/lib/process"
 	"github.com/lejenome/lro/services/process-executor/lib/process/db"
@@ -15,14 +16,14 @@ import (
 
 func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	config, err := config.Load()
-	if err != nil {
+	var conf executor.ProcessExecutorConfig
+	if err := config.Load(&conf); err != nil {
 		panic(fmt.Errorf("Config error: %w", err))
 	}
-	cache := redis.RedisJobCache(config.Redis.URL, config.Redis.Username, config.Redis.Password, config.Redis.DB)
-	queue := queues.NatsSubscriber(config.Nats.URL, "lro", cache)
-	queuePub := queues.NatsPublisher(config.Nats.URL, "lro", cache)
-	store := db.DBJobStore(config.Database.URL)
+	cache := redis.RedisJobCache(conf.Redis.URL, conf.Redis.Username, conf.Redis.Password, conf.Redis.DB)
+	queue := queues.NatsSubscriber(conf.Nats.URL, "lro", cache)
+	queuePub := queues.NatsPublisher(conf.Nats.URL, "lro", cache)
+	store := db.DBJobStore(conf.Database.URL)
 	runner := process.DefaultRunner(queue, store)
 	runner.Register(process.Process{
 		Name:    "greeting:v1",

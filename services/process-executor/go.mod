@@ -2,6 +2,8 @@ module github.com/lejenome/lro/services/process-executor
 
 go 1.18
 
+replace github.com/lejenome/lro/pkg => ../../pkg
+
 require (
 	github.com/ThreeDotsLabs/watermill v1.2.0-rc.10
 	github.com/ThreeDotsLabs/watermill-jetstream v0.0.5
@@ -9,6 +11,7 @@ require (
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.3.0
+	github.com/lejenome/lro/pkg v0.0.0-20220412200127-184856d348e2
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/nats-io/nats.go v1.13.1-0.20220202232944-a0a6a71ede98
 	github.com/spf13/viper v1.11.0

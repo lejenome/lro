@@ -4,145 +4,219 @@
 package process
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"net/url"
-	"path"
-	"strings"
+	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/gin-gonic/gin"
-	externalRef0 "github.com/lejenome/lro/pkg/apis/auth"
 	externalRef1 "github.com/lejenome/lro/pkg/apis/common"
-	externalRef2 "github.com/lejenome/lro/pkg/apis/process"
 )
 
-// ServerInterface represents all server handlers.
-type ServerInterface interface {
+// Defines values for ProcessState.
+const (
+	ProcessStateCOMPLETED ProcessState = "COMPLETED"
+
+	ProcessStateSCHEDULED ProcessState = "SCHEDULED"
+
+	ProcessStateSTARTED ProcessState = "STARTED"
+)
+
+// Defines values for ProcessStatus.
+const (
+	ProcessStatusCANCEL ProcessStatus = "CANCEL"
+
+	ProcessStatusFAILURE ProcessStatus = "FAILURE"
+
+	ProcessStatusPENDING ProcessStatus = "PENDING"
+
+	ProcessStatusRUNNING ProcessStatus = "RUNNING"
+
+	ProcessStatusSUCCESS ProcessStatus = "SUCCESS"
+
+	ProcessStatusTIMEOUT ProcessStatus = "TIMEOUT"
+)
+
+// Process unique ID (UUID)
+type JobId string
+
+// JobShortInfo defines model for JobShortInfo.
+type JobShortInfo struct {
+	// Process unique ID (UUID)
+	Id        *JobId  `json:"id,omitempty"`
+	StatusURL *string `json:"statusURL,omitempty"`
 }
 
-// ServerInterfaceWrapper converts contexts to parameters.
-type ServerInterfaceWrapper struct {
-	Handler            ServerInterface
-	HandlerMiddlewares []MiddlewareFunc
+// Process details and input/output format schema
+type ProcessInfo struct {
+	Input  *ProcessInput  `json:"input,omitempty"`
+	Name   *ProcessName   `json:"name,omitempty"`
+	Output *ProcessOutput `json:"output"`
 }
 
-type MiddlewareFunc func(c *gin.Context)
-
-// GinServerOptions provides options for the Gin server.
-type GinServerOptions struct {
-	BaseURL     string
-	Middlewares []MiddlewareFunc
+// ProcessInput defines model for ProcessInput.
+type ProcessInput struct {
+	AdditionalProperties map[string]interface{} `json:"-"`
 }
 
-// RegisterHandlers creates http.Handler with routing matching OpenAPI spec.
-func RegisterHandlers(router *gin.Engine, si ServerInterface) *gin.Engine {
-	return RegisterHandlersWithOptions(router, si, GinServerOptions{})
+// ProcessName defines model for ProcessName.
+type ProcessName string
+
+// ProcessOutput defines model for ProcessOutput.
+type ProcessOutput struct {
+	AdditionalProperties map[string]interface{} `json:"-"`
 }
 
-// RegisterHandlersWithOptions creates http.Handler with additional options
-func RegisterHandlersWithOptions(router *gin.Engine, si ServerInterface, options GinServerOptions) *gin.Engine {
-
-	return router
+// ProcessResultsResponse defines model for ProcessResultsResponse.
+type ProcessResultsResponse struct {
+	Data   *ProcessOutput        `json:"data"`
+	Errors *[]externalRef1.Error `json:"errors"`
+	Id     string                `json:"id"`
+	Meta   *struct {
+		CreatedAt time.Time     `json:"createdAt"`
+		EndedAt   time.Time     `json:"endedAt"`
+		Name      ProcessName   `json:"name"`
+		Owner     string        `json:"owner"`
+		StartedAt time.Time     `json:"startedAt"`
+		State     ProcessState  `json:"state"`
+		Status    ProcessStatus `json:"status"`
+		UpdatedAt time.Time     `json:"updatedAt"`
+	} `json:"meta"`
 }
 
-// Base64 encoded, gzipped, json marshaled Swagger object
-var swaggerSpec = []string{
+// ProcessState defines model for ProcessState.
+type ProcessState string
 
-	"H4sIAAAAAAAC/6pWSs7PLcjPS80rKVayqq7VUcrMS8tXssorzcnRUcovSM1LLMhUslJS0lEqSCzJKIbI",
-	"1AICAAD//90sQDE3AAAA",
+// ProcessStatus defines model for ProcessStatus.
+type ProcessStatus string
+
+// ProcessStatusResponse defines model for ProcessStatusResponse.
+type ProcessStatusResponse struct {
+	CreatedAt  time.Time     `json:"createdAt"`
+	EndedAt    *time.Time    `json:"endedAt"`
+	Id         string        `json:"id"`
+	Name       ProcessName   `json:"name"`
+	Owner      string        `json:"owner"`
+	Progress   uint8         `json:"progress"`
+	ResultsUrl *string       `json:"resultsUrl"`
+	StartedAt  *time.Time    `json:"startedAt"`
+	State      ProcessState  `json:"state"`
+	Status     ProcessStatus `json:"status"`
+	UpdatedAt  time.Time     `json:"updatedAt"`
 }
 
-// GetSwagger returns the content of the embedded swagger specification file
-// or error if failed to decode
-func decodeSpec() ([]byte, error) {
-	zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
-	if err != nil {
-		return nil, fmt.Errorf("error base64 decoding spec: %s", err)
-	}
-	zr, err := gzip.NewReader(bytes.NewReader(zipped))
-	if err != nil {
-		return nil, fmt.Errorf("error decompressing spec: %s", err)
-	}
-	var buf bytes.Buffer
-	_, err = buf.ReadFrom(zr)
-	if err != nil {
-		return nil, fmt.Errorf("error decompressing spec: %s", err)
-	}
-
-	return buf.Bytes(), nil
+// TriggerProcessRequest defines model for TriggerProcessRequest.
+type TriggerProcessRequest struct {
+	Config *struct {
+		Priority   *uint8  `json:"priority,omitempty"`
+		Retry      *uint8  `json:"retry,omitempty"`
+		Timeout    *uint32 `json:"timeout,omitempty"`
+		WebhookUrl *string `json:"webhookUrl,omitempty"`
+	} `json:"config,omitempty"`
+	Data        ProcessInput `json:"data"`
+	ProcessName *ProcessName `json:"processName,omitempty"`
 }
 
-var rawSpec = decodeSpecCached()
-
-// a naive cached of a decoded swagger spec
-func decodeSpecCached() func() ([]byte, error) {
-	data, err := decodeSpec()
-	return func() ([]byte, error) {
-		return data, err
-	}
-}
-
-// Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
-func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
-	var res = make(map[string]func() ([]byte, error))
-	if len(pathToFile) > 0 {
-		res[pathToFile] = rawSpec
-	}
-
-	pathPrefix := path.Dir(pathToFile)
-
-	for rawPath, rawFunc := range externalRef0.PathToRawSpec(path.Join(pathPrefix, "./components/auth.yml")) {
-		if _, ok := res[rawPath]; ok {
-			// it is not possible to compare functions in golang, so always overwrite the old value
-		}
-		res[rawPath] = rawFunc
-	}
-	for rawPath, rawFunc := range externalRef1.PathToRawSpec(path.Join(pathPrefix, "./components/common.yml")) {
-		if _, ok := res[rawPath]; ok {
-			// it is not possible to compare functions in golang, so always overwrite the old value
-		}
-		res[rawPath] = rawFunc
-	}
-	for rawPath, rawFunc := range externalRef2.PathToRawSpec(path.Join(pathPrefix, "./components/process.yml")) {
-		if _, ok := res[rawPath]; ok {
-			// it is not possible to compare functions in golang, so always overwrite the old value
-		}
-		res[rawPath] = rawFunc
-	}
-	return res
-}
-
-// GetSwagger returns the Swagger specification corresponding to the generated code
-// in this file. The external references of Swagger specification are resolved.
-// The logic of resolving external references is tightly connected to "import-mapping" feature.
-// Externally referenced files must be embedded in the corresponding golang packages.
-// Urls can be supported but this task was out of the scope.
-func GetSwagger() (swagger *openapi3.T, err error) {
-	var resolvePath = PathToRawSpec("")
-
-	loader := openapi3.NewLoader()
-	loader.IsExternalRefsAllowed = true
-	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
-		var pathToFile = url.String()
-		pathToFile = path.Clean(pathToFile)
-		getSpec, ok := resolvePath[pathToFile]
-		if !ok {
-			err1 := fmt.Errorf("path not found: %s", pathToFile)
-			return nil, err1
-		}
-		return getSpec()
-	}
-	var specData []byte
-	specData, err = rawSpec()
-	if err != nil {
-		return
-	}
-	swagger, err = loader.LoadFromData(specData)
-	if err != nil {
-		return
+// Getter for additional properties for ProcessInput. Returns the specified
+// element and whether it was found
+func (a ProcessInput) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
 	}
 	return
+}
+
+// Setter for additional properties for ProcessInput
+func (a *ProcessInput) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for ProcessInput to handle AdditionalProperties
+func (a *ProcessInput) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for ProcessInput to handle AdditionalProperties
+func (a ProcessInput) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for ProcessOutput. Returns the specified
+// element and whether it was found
+func (a ProcessOutput) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for ProcessOutput
+func (a *ProcessOutput) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for ProcessOutput to handle AdditionalProperties
+func (a *ProcessOutput) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for ProcessOutput to handle AdditionalProperties
+func (a ProcessOutput) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
 }
