@@ -15,4 +15,4 @@ genTypes process ../pkg/apis/process/process.gen.go ../spec/components/process.y
 genTypes common ../pkg/apis/common/common.gen.go ../spec/components/common.yml
 
 # Endpoints
-genAPI process ../services/process-api/controllers.gen.go ../spec/process-api.openapi.yml
+genAPI controllers ../services/process-api/web/controllers/controllers.gen.go ../spec/process-api.openapi.yml

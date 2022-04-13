@@ -22,12 +22,13 @@ type DefaultConfig struct {
 
 func Defaults() map[string]interface{} {
 	return map[string]interface{}{
-		"Env":             "dev",
-		"Database.Driver": "postgresql",
-		"Redis.Network":   "tcp",
-		"Redis.URL":       "localhost:6379",
-		"Redis.DB":        0,
-		"Nats.URL":        "localhost:4222",
+		"Env":               "dev",
+		"Database.Driver":   "postgresql",
+		"Redis.Network":     "tcp",
+		"Redis.URL":         "localhost:6379",
+		"Redis.DB":          0,
+		"Nats.URL":          "localhost:4222",
+		"Auth.JWT.Duration": "2160h", // 24h * 30 days * 3 months
 	}
 }
 
