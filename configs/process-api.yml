@@ -15,10 +15,10 @@ redis:
   password: ""
   db: 0
 log:
-  level: INFO
+  level: info
 auth:
   jwt:
     secret_key:
   issuer:
-  claim_aud:
+  claim_aud: process-api
   claim_iss:

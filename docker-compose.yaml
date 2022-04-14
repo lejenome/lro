@@ -78,6 +78,7 @@ services:
         condition: on-failure
     env_file:
       - ./configs/dev/db.env
+      - ./configs/dev/grafana.env
     #ports:
     #  - 5432:5432
     volumes:
@@ -97,14 +98,100 @@ services:
     networks:
       - process-services
 
+  grafana:
+    build: ./dockerfiles/grafana
+    image: lro/grafana
+    deploy:
+      restart_policy:
+        condition: on-failure
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./dockerfiles/grafana/provisioning:/etc/grafana/provisioning/dashboards
+      - ./dockerfiles/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./dockerfiles/grafana/dashboards:/var/lib/grafana/dashboards
+    env_file:
+      - ./configs/dev/grafana.env
+    logging:
+      driver: none
+    networks:
+      - process-services
+    depends_on:
+      - loki
+      - db
+
+  loki:
+    build: ./dockerfiles/loki
+    image: lro/loki
+    command: -config.file=/etc/loki/config.yaml
+    deploy:
+      restart_policy:
+        condition: on-failure
+    #env_file:
+    #  - ./configs/dev/loki.env
+    configs:
+      - source: loki
+        target: /etc/loki/config.yaml
+        mode: 0440
+    volumes:
+      - loki:/loki
+    networks:
+      - process-services
+
+  promtail:
+    build: ./dockerfiles/promtail
+    image: lro/promtail
+    command: -config.file=/etc/promtail/config.yml
+    deploy:
+      restart_policy:
+        condition: on-failure
+    env_file:
+      - ./configs/dev/promtail.env
+    configs:
+      - source: promtail
+        target: /etc/promtail/config.yml
+        mode: 0440
+    networks:
+      - process-services
+    volumes:
+      - promtail:/tmp/promtail
+      - /var/lib/docker/containers:/var/lib/docker/containers
+    depends_on:
+      - loki
+
+  prometheus:
+    build: ./dockerfiles/prometheus
+    image: lro/prometheus
+    deploy:
+      restart_policy:
+        condition: on-failure
+    configs:
+      - source: prometheus
+        target: /etc/prometheus/prometheus.yml
+        mode: 0440
+    logging:
+      driver: none
+    networks:
+      - process-services
+
 networks:
   process-services:
 volumes:
   db:
   nats:
   redis:
+  grafana:
+  promtail:
+  loki:
 configs:
   process-executor:
     file: ./configs/dev/process-executor.yml
   process-api:
     file: ./configs/dev/process-api.yml
+  prometheus:
+    file: ./dockerfiles/prometheus/prometheus.yml
+  loki:
+    file: ./dockerfiles/loki/loki.yml
+  promtail:
+    file: ./dockerfiles/promtail/promtail.yml

@@ -2,4 +2,5 @@
 
 FROM postgres:alpine
 
-COPY ./init.sql /docker-entrypoint-initdb.d/init.sql
+COPY ./00_init.sql /docker-entrypoint-initdb.d/00_init.sql
+COPY ./50_grafana.sh /docker-entrypoint-initdb.d/50_grafana.sh

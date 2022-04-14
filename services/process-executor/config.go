@@ -9,4 +9,5 @@ type ProcessExecutorConfig struct {
 	Redis    config.RedisConfig
 	Database config.DatabaseConfig
 	Nats     config.NatsConfig
+	Metrics  config.MetricsConfig
 }

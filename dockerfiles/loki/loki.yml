@@ -1,0 +1,69 @@
+---
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+
+ruler:
+  alertmanager_url: http://localhost:9093
+
+common:
+  path_prefix: /tmp/loki
+  storage:
+    filesystem:
+      chunks_directory: /tmp/loki/chunks
+      rules_directory: /tmp/loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: memberlist
+      replication_factor: 1
+  wal:
+    dir: /loki/wal
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: boltdb-shipper
+      object_store: filesystem  # filesystem | aws
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  #aws:
+  #  endpoint: ${MINIO_URL}
+  #  bucketnames: ${MINIO_BUCKET_NAME}
+  #  access_key_id: ${MINIO_ROOT_USER}
+  #  secret_access_key: ${MINIO_ROOT_PASSWORD}
+  #  s3forcepathstyle: true
+
+  boltdb_shipper:
+    active_index_directory: /loki/index
+    cache_location: /loki/index-cache
+    shared_store: filesystem # aws
+
+  filesystem:
+    directory: /loki/chunks
+
+compactor:
+  working_directory: /loki/compactor
+  shared_store: filesystem # s3
+  compaction_interval: 5m
+
+limits_config:
+  enforce_metric_name: false
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+
+analytics:
+  reporting_enabled: false
