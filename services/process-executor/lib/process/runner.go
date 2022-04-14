@@ -1,6 +1,7 @@
 package process
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -15,7 +16,7 @@ type Runner interface {
 	Handler
 	Register(Process)
 	Unregister(processName string)
-	Run()
+	Run(ctx context.Context)
 	Close()
 }
 type basicRunner struct {
@@ -90,11 +91,13 @@ func (r *basicRunner) RunJobId(id uuid.UUID) error {
 	return r.RunJob(job)
 }
 
-func (r *basicRunner) Run() {
+func (r *basicRunner) Run(ctx context.Context) {
 	wg := sync.WaitGroup{}
 loop:
 	for {
 		select {
+		case <-ctx.Done():
+			break loop
 		case <-r.close:
 			break loop
 		default:

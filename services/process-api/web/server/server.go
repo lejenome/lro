@@ -1,7 +1,11 @@
 package server
 
 import (
+	"context"
+	"errors"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/lejenome/lro/pkg/config"
 	"github.com/lejenome/lro/services/process-api/web/controllers"
@@ -14,16 +18,20 @@ import (
 type Server struct {
 	routes *gin.Engine
 	auth   config.AuthConfig
+	ctx    context.Context
+	srv    *http.Server
 }
 
 // New create new instance of the Server
-func New(env string, auth config.AuthConfig) Server {
+func New(ctx context.Context, env string, auth config.AuthConfig) Server {
 	if env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	return Server{
-		gin.New(),
-		auth,
+		routes: gin.New(),
+		auth:   auth,
+		ctx:    ctx,
+		srv:    nil,
 	}
 }
 
@@ -46,6 +54,34 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	s.routes.ServeHTTP(w, req)
 }
 
-func (s *Server) ListenAndServe(addr string) {
-	s.routes.Run(addr)
+func (s *Server) ListenAndServe(addr string) error {
+	s.srv = &http.Server{
+		Addr:    addr,
+		Handler: s.routes,
+	}
+	go func() {
+		<-s.ctx.Done()
+		s.Shutdown()
+	}()
+	err := s.srv.ListenAndServe()
+	if err != nil && errors.Is(err, http.ErrServerClosed) {
+		log.Printf("listen: %s\n", err)
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) Shutdown() {
+	if s.srv == nil {
+		return
+	}
+	// the server has 5 seconds to finish the request it is currently handling
+	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
+	defer cancel()
+	if err := s.srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown:", err)
+	}
+	s.srv = nil
 }

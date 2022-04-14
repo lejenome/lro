@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -82,10 +83,11 @@ func (jt *jobT) toJob() (*process.Job, error) {
 }
 
 type dbJobStore struct {
-	db *gorm.DB
+	db  *gorm.DB
+	ctx context.Context
 }
 
-func DBJobStore(dsn string) process.JobStore {
+func DBJobStore(ctx context.Context, dsn string) process.JobStore {
 	const timeout = 5 * time.Minute
 	timeoutExceeded := time.After(timeout)
 
@@ -96,6 +98,8 @@ func DBJobStore(dsn string) process.JobStore {
 loop:
 	for {
 		select {
+		case <-ctx.Done():
+			return nil
 		case <-timeoutExceeded:
 			panic(fmt.Errorf("DB connection failed after %s timeout", timeout))
 
@@ -115,7 +119,8 @@ loop:
 
 	db.AutoMigrate(&jobT{})
 	return &dbJobStore{
-		db: db,
+		db:  db,
+		ctx: ctx,
 	}
 }
 
@@ -127,7 +132,7 @@ func (q *dbJobStore) Save(job *process.Job) error {
 	if err != nil {
 		return err
 	}
-	res := q.db.Omit("ID").Create(jt)
+	res := q.db.WithContext(q.ctx).Omit("ID").Create(jt)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -142,7 +147,7 @@ func (q *dbJobStore) Update(job *process.Job) error {
 	if err != nil {
 		return err
 	}
-	res := q.db.Model(jt).
+	res := q.db.WithContext(q.ctx).Model(jt).
 		Where("id = ?", jt.ID).
 		Updates(jt)
 	if res.Error != nil {
@@ -152,7 +157,7 @@ func (q *dbJobStore) Update(job *process.Job) error {
 }
 func (q *dbJobStore) Retrive(id uuid.UUID) (*process.Job, error) {
 	var jt jobT
-	res := q.db.Model(&jt).Take(&jt, id)
+	res := q.db.WithContext(q.ctx).Model(&jt).Take(&jt, id)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("Job '%s' not found in store", id)
 	} else if res.Error != nil {

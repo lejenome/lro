@@ -9,7 +9,6 @@ import (
 func main() {
 	service := executor.Service{}
 	service.Init()
-	service.Run()
 	service.RegisterProcesses(process.Process{
 		Name:    "greeting:v1",
 		Handler: process.HandlerFunc(examples.GreetingProcessV1),

@@ -28,7 +28,7 @@ type natsQueue struct {
 
 var _ process.Queue = (*natsQueue)(nil)
 
-func NatsSubscriber(url string, clusterID string, jc process.JobCache) process.Queue {
+func NatsSubscriber(ctx context.Context, url string, clusterID string, jc process.JobCache) process.Queue {
 	subscriber, err := jetstream.NewSubscriber(
 		jetstream.SubscriberConfig{
 			URL:              url,
@@ -61,7 +61,7 @@ func NatsSubscriber(url string, clusterID string, jc process.JobCache) process.Q
 	if err != nil {
 		panic(err.Error())
 	}
-	messages, err := subscriber.Subscribe(context.Background(), TOPIC_JOB_SCHEDULED)
+	messages, err := subscriber.Subscribe(ctx, TOPIC_JOB_SCHEDULED)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -138,8 +138,10 @@ func (q *natsQueue) GetJobId() (uuid.UUID, error) {
 	if q.closed {
 		return uuid.Nil, errors.New("Queue closed")
 	}
-	msg := <-q.messages
-	if job, err := uuid.FromBytes(msg.Payload); err != nil {
+	msg, ok := <-q.messages
+	if !ok {
+		return uuid.Nil, errors.New("Error retriving new job id from the queue")
+	} else if job, err := uuid.FromBytes(msg.Payload); err != nil {
 		return uuid.Nil, err
 	} else {
 		msg.Ack()

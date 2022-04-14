@@ -11,17 +11,16 @@ import (
 	"github.com/lejenome/lro/services/process-executor/lib/process"
 )
 
-var ctx = context.Background()
-
 type redisJobCache struct {
 	sync.RWMutex
 	rdb    *redis.Client
 	closed bool
+	ctx    context.Context
 }
 
 var _ process.JobCache = (*redisJobCache)(nil)
 
-func RedisJobCache(url string, username string, password string, db int) process.JobCache {
+func RedisJobCache(ctx context.Context, url string, username string, password string, db int) process.JobCache {
 	return &redisJobCache{
 		rdb: redis.NewClient(&redis.Options{
 			Addr:     url,
@@ -29,6 +28,7 @@ func RedisJobCache(url string, username string, password string, db int) process
 			Username: username,
 			DB:       db,
 		}),
+		ctx: ctx,
 	}
 }
 
@@ -41,13 +41,13 @@ func (q *redisJobCache) Add(job *process.Job) error {
 	if q.closed {
 		return errors.New("Queue closed")
 	}
-	_, err := q.rdb.Get(ctx, "job:"+job.ID.String()).Result()
+	_, err := q.rdb.Get(q.ctx, "job:"+job.ID.String()).Result()
 	if err != nil && err != redis.Nil {
 		return err
 	} else if err == nil {
 		return fmt.Errorf("Job '%s' already added", job.ID)
 	}
-	err = q.rdb.Set(ctx, "job:"+job.ID.String(), job, 0).Err()
+	err = q.rdb.Set(q.ctx, "job:"+job.ID.String(), job, 0).Err()
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (q *redisJobCache) Get(id uuid.UUID) (*process.Job, error) {
 	if q.closed {
 		return nil, errors.New("Queue closed")
 	}
-	data, err := q.rdb.Get(ctx, "job:"+id.String()).Result()
+	data, err := q.rdb.Get(q.ctx, "job:"+id.String()).Result()
 	if err == redis.Nil {
 		return nil, fmt.Errorf("Job '%s' not found", id)
 	} else if err != nil {
