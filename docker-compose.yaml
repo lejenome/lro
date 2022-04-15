@@ -79,6 +79,7 @@ services:
     env_file:
       - ./configs/dev/db.env
       - ./configs/dev/grafana.env
+      - ./configs/dev/kratos.env
     #ports:
     #  - 5432:5432
     volumes:
@@ -97,6 +98,63 @@ services:
       - redis:/data
     networks:
       - process-services
+
+  kratos-migrate:
+    build:
+      context: ./dockerfiles/kratos
+      dockerfile: Dockerfile.migrate
+    image: lro/kratos-migrate
+    deploy:
+      restart_policy:
+        condition: on-failure
+    env_file:
+      - ./configs/dev/kratos.env
+    volumes:
+      - type: bind
+        source: ./dockerfiles/kratos/config
+        target: /etc/config/kratos
+    networks:
+      - process-services
+    depends_on:
+      - db
+
+  kratos:
+    build: ./dockerfiles/kratos
+    image: lro/kratos
+    deploy:
+      restart_policy:
+        condition: on-failure
+    env_file:
+      - ./configs/dev/kratos.env
+    ports:
+      - '4433:4433' # public
+      - '4434:4434' # admin
+    volumes:
+      - type: bind
+        source: ./dockerfiles/kratos/config
+        target: /etc/config/kratos
+    networks:
+      - process-services
+    depends_on:
+      - db
+      - kratos-migrate
+
+  kratos-ui:
+    build:
+      context: ./dockerfiles/kratos
+      dockerfile: Dockerfile.ui
+    image: lro/kratos-ui
+    deploy:
+      restart_policy:
+        condition: on-failure
+    env_file:
+      - ./configs/dev/kratos-ui.env
+    ports:
+      - '4455:4455'
+    networks:
+      - process-services
+    depends_on:
+      - kratos
 
   grafana:
     build: ./dockerfiles/grafana
@@ -172,6 +230,14 @@ services:
         mode: 0440
     logging:
       driver: none
+    networks:
+      - process-services
+
+  jaeger:
+    build: ./dockerfiles/jaeger
+    image: lro/jaeger
+    ports:
+      - "16686:16686" # The UI port
     networks:
       - process-services
 

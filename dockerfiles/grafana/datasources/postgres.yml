@@ -9,16 +9,18 @@ datasources:
     typeLogoUrl: "public/app/plugins/datasource/postgres/img/postgresql_logo.svg"
     access: "proxy"
     url: "${GF_DATABASE_HOST}"
-    password: "${GF_DATABASE_PASSWORD}"
     user: "${GF_DATABASE_USER}"
     database: "${APP_DATABASE_NAME}"
     basicAuth: false
     isDefault: false
+    secureJsonData:
+      password: "${GF_DATABASE_PASSWORD}"
     jsonData:
-      postgresVersion: 903
+      postgresVersion: 1400
       sslmode: "disable"
       tlsAuth: false
       tlsAuthWithCACert: false
       tlsConfigurationMethod: "file-path"
       tlsSkipVerify: true
+      timescaledb: false
     readOnly: false

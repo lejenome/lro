@@ -1,0 +1,2 @@
+FROM oryd/kratos
+CMD ["-c", "/etc/config/kratos/kratos.yml", "migrate", "sql", "-e", "--yes"]
